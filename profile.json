@@ -1,0 +1,77 @@
+{
+  "personal": {
+    "first_name": "Jackson",
+    "last_name": "Ray",
+    "email": "jacksonzhuang@cmail.carleton.ca",
+    "phone": "437-673-4543",
+    "city": "Montreal",
+    "state": "QC",
+    "country": "Canada",
+    "postal_code": "",
+    "linkedin_url": "https://linkedin.com/in/jacksonray07",
+    "github_url": "https://github.com/jacksonzhuang07"
+  },
+  "work_authorization": {
+    "canadian_citizen": true,
+    "authorized_in_canada": true,
+    "authorized_in_us": false,
+    "requires_us_sponsorship": true,
+    "eligible_for_tn_visa": true,
+    "security_clearance": false
+  },
+  "preferences": {
+    "currency": "CAD",
+    "desired_salary": 95000,
+    "minimum_salary": 80000,
+    "notice_period_weeks": 2,
+    "remote_preference": "Remote",
+    "willing_to_relocate": false,
+    "target_roles": [
+      "Automation Engineer",
+      "Python Developer",
+      "Technical Consultant",
+      "Data Analytics & Systems Consultant",
+      "Process Automation Specialist",
+      "QA Automation Engineer"
+    ],
+    "target_locations": [
+      "Canada - Remote",
+      "Montreal, QC"
+    ]
+  },
+  "experience": {
+    "total_years_tech": 4,
+    "python_years": 4,
+    "sql_years": 3,
+    "selenium_years": 2,
+    "rest_api_years": 3,
+    "power_bi_years": 3,
+    "azure_years": 2,
+    "etl_data_pipelines_years": 3,
+    "ocr_ai_nlp_years": 2,
+    "javascript_years": 2,
+    "powershell_bash_years": 3
+  },
+  "education": {
+    "highest_degree": "Bachelor of Science in Computer Science, Honours (Co-op)",
+    "university": "Carleton University",
+    "graduation_year": 2025,
+    "honors": "Dean's List 2020-2025"
+  },
+  "languages": [
+    "English",
+    "French",
+    "Mandarin"
+  ],
+  "certifications": [
+    "Certified Pendo Project Manager",
+    "AWS Certified Solutions Architect – Associate (in progress)"
+  ],
+  "eeo_demographics": {
+    "gender": "Decline to self-identify",
+    "race_ethnicity": "Decline to self-identify",
+    "veteran_status": "No / Not a veteran",
+    "disability_status": "No / Decline to answer"
+  },
+  "summary_bio": "Automation-focused Technical Consultant and Carleton University Computer Science graduate (Honours Co-op) with 4+ years designing and deploying Python, REST API, OCR/AI, SQL, Selenium, and Power BI enterprise solutions across federal government and corporate environments."
+}

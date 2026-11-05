@@ -1,0 +1,25 @@
+search:
+  keywords: "Python Automation OR Process Automation OR Technical Consultant OR Selenium OR Analytics Engineer"
+  location: "Canada"
+  is_remote: true
+  job_type: "fulltime"
+  results_per_platform: 20
+
+agent:
+  match_threshold: 75     # Minimum % match to trigger application
+  max_daily_applications: 15
+  model_name: "gemini-2.5-flash"
+
+safety:
+  min_delay_seconds: 40
+  max_delay_seconds: 90
+  headless_browser: true
+
+paths:
+  resume_pdf: "assets/resume.pdf"
+  resume_markdown: "assets/resume_text.md"
+  browser_profile_dir: "browser_session"
+  database_file: "applications.db"
+
+notifications:
+  webhook_url: ""         # Optional: Discord or Slack webhook for daily summaries

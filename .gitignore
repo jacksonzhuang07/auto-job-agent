@@ -1,0 +1,27 @@
+# Environment & credentials
+.env
+.env.local
+
+# Browser session cookies & auth tokens (CRITICAL: NEVER COMMIT)
+browser_session/
+*.pid
+agent.pid
+
+# SQLite databases & logs
+*.db
+*.db-journal
+*.log
+agent_run.log
+agent.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# Operating System files
+.DS_Store
+Thumbs.db
