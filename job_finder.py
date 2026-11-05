@@ -28,8 +28,9 @@ class JobFinder:
                 search_term=search_term,
                 location=location,
                 results_wanted=results_per_platform,
-                hours_old=24,  # Focus on fresh postings from the past day
+                hours_old=48,  # Past 48 hours for broader Easy Apply pool
                 country_indeed=country,
+                easy_apply=True,  # Filters exclusively for LinkedIn Easy Apply & Indeed Apply
             )
 
             if jobs_df.empty:
