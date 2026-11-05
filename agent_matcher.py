@@ -2,9 +2,11 @@ import os
 import json
 import logging
 from typing import Dict, Any, Tuple
+from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
 class AgentMatcher:

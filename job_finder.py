@@ -19,6 +19,8 @@ class JobFinder:
 
         logger.info(f"Searching for '{search_term}' in '{location}' (Remote: {is_remote})...")
 
+        country = "canada" if "canada" in location.lower() else "USA"
+
         try:
             # scrape_jobs supports: "linkedin", "indeed", "glassdoor", "zip_recruiter"
             jobs_df = scrape_jobs(
@@ -27,8 +29,7 @@ class JobFinder:
                 location=location,
                 results_wanted=results_per_platform,
                 hours_old=24,  # Focus on fresh postings from the past day
-                country_indeed="USA",
-                is_remote=is_remote,
+                country_indeed=country,
             )
 
             if jobs_df.empty:
