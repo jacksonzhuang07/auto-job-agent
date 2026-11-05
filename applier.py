@@ -31,32 +31,17 @@ class JobApplier:
         job_url = job.get("job_url", "")
 
         with sync_playwright() as p:
-            # Using persistent context with your real Google Chrome browser
-            # preserves Google SSO session cookies between daily runs
-            try:
-                context = p.chromium.launch_persistent_context(
-                    user_data_dir=self.user_data_dir,
-                    channel="chrome",
-                    headless=self.headless,
-                    args=[
-                        "--disable-blink-features=AutomationControlled",
-                        "--start-maximized"
-                    ],
-                    ignore_default_args=["--enable-automation"],
-                    viewport=None
-                )
-            except Exception:
-                context = p.chromium.launch_persistent_context(
-                    user_data_dir=self.user_data_dir,
-                    headless=self.headless,
-                    args=[
-                        "--disable-blink-features=AutomationControlled",
-                        "--start-maximized"
-                    ],
-                    ignore_default_args=["--enable-automation"],
-                    viewport=None
-                )
-            page = context.new_page()
+            context = p.chromium.launch_persistent_context(
+                user_data_dir=self.user_data_dir,
+                headless=self.headless,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--start-maximized"
+                ],
+                ignore_default_args=["--enable-automation"],
+                viewport=None
+            )
+            page = context.pages[0] if context.pages else context.new_page()
 
             try:
                 logger.info(f"Navigating to {job_url}...")

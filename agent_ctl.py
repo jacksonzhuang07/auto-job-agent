@@ -13,16 +13,18 @@ LOG_FILE = BASE_DIR / "agent.log"
 CONFIG_FILE = BASE_DIR / "config.yaml"
 DB_FILE = BASE_DIR / "applications.db"
 
-def is_running(pid: int) -> bool:
-    """Check if process with given PID is alive."""
+def is_running(pid: int = None) -> bool:
+    """Check if daemon_runner is actively running."""
     if sys.platform == "win32":
         try:
-            cmd = f'tasklist /FI "PID eq {pid}"'
-            output = subprocess.check_output(cmd, shell=True).decode()
-            return str(pid) in output
+            cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'python.exe\'\\" | Where-Object { $_.CommandLine -like \'*daemon_runner.py*\' } | Select-Object -ExpandProperty ProcessId"'
+            out = subprocess.check_output(cmd, shell=True).decode().strip()
+            return bool(out)
         except Exception:
             return False
     else:
+        if not pid:
+            return False
         try:
             os.kill(pid, 0)
             return True
@@ -43,25 +45,24 @@ def start():
             PID_FILE.unlink(missing_ok=True)
 
     print("[*] Starting Autonomous Job Applier Agent daemon...")
-    log_fp = open(LOG_FILE, "a", encoding="utf-8")
 
-    # Start detached daemon process
+    # Start background daemon process without file handle locks
     if sys.platform == "win32":
-        # Windows detached creation flags
-        DETACHED_PROCESS = 0x00000008
-        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        python_bin = sys.executable.replace("python.exe", "pythonw.exe")
+        if not Path(python_bin).exists():
+            python_bin = sys.executable
+
         proc = subprocess.Popen(
-            [sys.executable, str(BASE_DIR / "daemon_runner.py")],
-            stdout=log_fp,
-            stderr=log_fp,
-            creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
-            close_fds=True
+            [python_bin, str(BASE_DIR / "daemon_runner.py")],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
     else:
         proc = subprocess.Popen(
             [sys.executable, str(BASE_DIR / "daemon_runner.py")],
-            stdout=log_fp,
-            stderr=log_fp,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             start_new_session=True
         )
 
