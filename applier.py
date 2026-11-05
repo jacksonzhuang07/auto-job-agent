@@ -33,6 +33,7 @@ class JobApplier:
             context = p.chromium.launch_persistent_context(
                 user_data_dir=self.user_data_dir,
                 headless=self.headless,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                 args=[
                     "--disable-blink-features=AutomationControlled",
                     "--start-maximized"
