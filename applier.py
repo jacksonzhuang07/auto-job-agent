@@ -41,6 +41,7 @@ class JobApplier:
                 viewport=None
             )
             page = context.pages[0] if context.pages else context.new_page()
+            page.add_init_script("delete Object.getPrototypeOf(navigator).webdriver;")
 
             try:
                 logger.info(f"Navigating to {job_url}...")
