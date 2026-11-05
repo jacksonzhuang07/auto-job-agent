@@ -95,6 +95,30 @@ class JobApplier:
                 except Exception:
                     pass
 
+            # Autofill Radio Button Groups (Yes/No fieldsets)
+            fieldsets = page.locator("fieldset").all()
+            for fs in fieldsets:
+                try:
+                    btn = fs.locator("label").first
+                    if btn.is_visible():
+                        btn.click(force=True)
+                        self.human_delay(0.3, 0.6)
+                except Exception:
+                    pass
+
+            # Autofill Select Dropdowns
+            selects = page.locator("select").all()
+            for sel in selects:
+                try:
+                    if sel.is_visible():
+                        label = sel.get_attribute("aria-label") or sel.evaluate("el => el.closest('div')?.innerText") or ""
+                        options = sel.locator("option").all_inner_texts()
+                        ans = self.matcher.answer_screening_question(label[:150], options=options)
+                        sel.select_option(label=str(ans))
+                        self.human_delay(0.3, 0.6)
+                except Exception:
+                    pass
+
             # Check for Submit button
             submit_btn = page.locator("button:has-text('Submit application')").first
             if submit_btn.is_visible(timeout=1000):
