@@ -1,0 +1,1 @@
+{"$schema":"https://openapi.vercel.sh/vercel.json","crons":[{"path":"/api/cron/daily-run","schedule":"0 13 * * *"}],"rewrites":[{"destination":"/api/index.py","source":"/(.*)"}]}
