@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Outreach drafts{% endblock %}
+{% block content %}
+<h1>Outreach drafts</h1>
+<p class="small muted"><strong>Draft mode only.</strong> The system never sends outreach. Approve means “ready for you to send yourself later” — there is no send button anywhere.</p>
+{% for d in drafts %}
+<div class="card" style="margin-bottom:12px">
+  <div><strong>{{ d.poster }}</strong> · {{ d.company }} — {{ d.role }} <span class="pill">{{ d.channel }}</span>
+    <span class="pill {{ 'ok' if d.status == 'approved' else ('bad' if d.status == 'rejected' else 'warn') }}">{{ d.status }}</span></div>
+  <p class="small" style="white-space:pre-wrap">{{ d.text }}</p>
+  <div class="small muted">{% if d.post_url %}<a href="{{ d.post_url }}">original post</a> · {% endif %}
+    <form class="inline" method="post" action="{{ url_for('main.draft_action', draft_id=d.id, action='approve') }}"><button class="secondary" type="submit">Approve</button></form>
+    <form class="inline" method="post" action="{{ url_for('main.draft_action', draft_id=d.id, action='reject') }}"><button class="danger" type="submit">Reject</button></form>
+  </div>
+</div>
+{% else %}<p class="muted">No drafts yet.</p>{% endfor %}
+{% endblock %}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Auto Job Agent{% endblock %} — SaaS Control Plane</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Auto&nbsp;Job&nbsp;Agent <span class="badge">SaaS control plane · v1</span></div>
+  <nav>
+    <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('main.ledger') }}">Applications</a>
+    <a href="{{ url_for('main.screening') }}">Screening Facts</a>
+    <a href="{{ url_for('main.stumps') }}">Stumped Questions</a>
+    <a href="{{ url_for('main.drafts') }}">Outreach Drafts</a>
+    <a href="{{ url_for('main.runs') }}">Runs</a>
+    <a href="{{ url_for('main.report') }}">Daily Report</a>
+    <a href="{{ url_for('main.settings_page') }}">Settings</a>
+  </nav>
+</header>
+<main class="container">
+  <div class="sim-banner">Control plane only — runs here are <strong>simulations</strong> through the real pipeline logic. Live LinkedIn/Indeed browser submission stays in the CLI agent (<code>main.py</code> / <code>applier.py</code>).</div>
+  {% block content %}{% endblock %}
+</main>
+<footer class="footer">Auto Job Agent — answers come only from stored screening facts; unknown questions are stumped, never guessed.</footer>
+</body>
+</html>

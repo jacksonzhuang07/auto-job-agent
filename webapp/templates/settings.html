@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<form method="post">
+  <h2>Target roles</h2>
+  <textarea name="target_roles">{{ settings.target_roles }}</textarea>
+  <h2>Excluded types</h2>
+  <textarea name="excluded_types">{{ settings.excluded_types }}</textarea>
+  <h2>Locations</h2>
+  <textarea name="locations">{{ settings.locations }}</textarea>
+  <h2>Salary rule</h2>
+  <textarea name="salary_rule">{{ settings.salary_rule }}</textarea>
+  <p class="small">Fallback figure when no band is posted: <input type="text" name="salary_fallback" value="{{ settings.salary_fallback }}" size="10"></p>
+  <h2>AI-use statement (approved wording, used verbatim when a form asks)</h2>
+  <textarea name="ai_use_statement" style="min-height:110px">{{ settings.ai_use_statement }}</textarea>
+  <p><button type="submit">Save settings</button></p>
+</form>
+{% endblock %}

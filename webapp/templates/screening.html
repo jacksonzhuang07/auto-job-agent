@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Screening facts{% endblock %}
+{% block content %}
+<h1>Screening facts</h1>
+<p class="small muted">Every application form question is answered <strong>only</strong> from this store. A question with no stored answer becomes a stump — it is never guessed.</p>
+<table>
+  <tr><th>Key</th><th>Question / label</th><th>Stored answer</th><th></th></tr>
+  {% for f in facts %}
+  <tr><td><code>{{ f.key }}</code></td><td>{{ f.label }}</td>
+    <td><form class="inline" method="post"><input type="hidden" name="fact_id" value="{{ f.id }}">
+      <input type="text" name="value" value="{{ f.value }}" size="42"></td>
+    <td><button type="submit" class="secondary">Save</button></form></td></tr>
+  {% endfor %}
+</table>
+<h2>Add a fact</h2>
+<form method="post">
+  <input type="text" name="key" placeholder="key (e.g. security_clearance)" required>
+  <input type="text" name="label" placeholder="Label">
+  <input type="text" name="value" placeholder="Answer" required>
+  <button type="submit">Add</button>
+</form>
+{% endblock %}

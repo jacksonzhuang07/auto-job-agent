@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard — {{ user.display_name or user.name }}</h1>
+<p class="muted small">Today: {{ today }}{% if override_date %} · <span class="pill warn">Override set for {{ override_date }}</span>{% endif %}</p>
+<div class="cards">
+  {% for platform in ["indeed", "linkedin"] %}
+  <div class="card">
+    <div class="num">{{ counts[platform] }} <span class="muted" style="font-size:15px">/ {% if ramps[platform].established_cap %}cap {{ ramps[platform].established_cap }}{% else %}{{ ramps[platform].target }}{% endif %}</span></div>
+    <div class="lbl">{{ platform|capitalize }} submitted today vs current ramp target</div>
+    <div class="ladder" style="margin-top:8px">
+      {% for step in ramps[platform].ladder %}<span class="{{ 'on' if loop.index0 == ramps[platform].ladder_index else '' }}">{{ step }}</span>{% endfor %}
+    </div>
+    {% if ramps[platform].paused_until %}<div class="pill bad" style="margin-top:8px">Paused until {{ ramps[platform].paused_until }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  <div class="card"><div class="num">{{ total }}</div><div class="lbl">Applications submitted (all time)</div>
+    <div class="small" style="margin-top:6px"><span class="pill ok">{{ delivered }} delivered</span> <span class="pill bad">{{ failed }} delivery failed</span></div></div>
+  <div class="card"><div class="num">{{ open_stumps }}</div><div class="lbl">Open stumped questions — <a href="{{ url_for('main.stumps') }}">answer them</a></div></div>
+</div>
+
+<h2>Recent applications</h2>
+<table>
+  <tr><th>Date</th><th>Company</th><th>Role</th><th>Source</th><th>Status</th><th>Delivery</th><th>Proof</th></tr>
+  {% for a in recent %}
+  <tr><td>{{ a.date }}</td><td>{{ a.company }}</td><td>{{ a.role }}</td><td>{{ a.source }}</td>
+    <td><span class="pill {{ 'ok' if a.status == 'submitted' else 'warn' }}">{{ a.status }}</span></td>
+    <td><span class="pill {{ 'ok' if a.delivery_status == 'delivered' else ('bad' if a.delivery_status == 'failed' else '') }}">{{ a.delivery_status }}</span></td>
+    <td class="small">{{ a.proof or a.reason or '' }}</td></tr>
+  {% else %}<tr><td colspan="7" class="muted">No applications yet.</td></tr>{% endfor %}
+</table>
+
+{% if events %}
+<h2>Platform warnings / events</h2>
+<table><tr><th>Platform</th><th>Event</th><th>Count at</th><th>Message</th><th>Date</th></tr>
+{% for e in events %}<tr><td>{{ e.platform }}</td><td>{{ e.event_type }}</td><td>{{ e.count_at }}</td><td>{{ e.message }}</td><td>{{ e.date }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+{% block content %}
+<h1>Runs</h1>
+<div class="cards">
+  <div class="card">
+    <div class="lbl">Start a run</div>
+    <p class="small">Simulated runner: walks the sample pool through the quality gate → dedupe → screening/stump → pacing/ramp → ledger, Indeed first.</p>
+    <form method="post" action="{{ url_for('main.start_run') }}"><button type="submit">Start simulated run</button></form>
+  </div>
+  <div class="card">
+    <div class="lbl">Dated override</div>
+    <p class="small">Suspends the day’s count targets (LinkedIn / Indeed) for one date only. Burst pacing and all stop rules stay binding, and an override day does not advance the ramp.</p>
+    <form method="post" action="{{ url_for('main.set_override') }}">
+      <input type="date" name="override_date" value="{{ override_date }}">
+      <button type="submit" class="secondary">Save override date</button>
+    </form>
+    <p class="small muted">Current: {{ override_date or 'none' }} · Today: {{ today }}</p>
+  </div>
+  <div class="card">
+    <div class="lbl">Ramp state</div>
+    {% for platform in ["indeed", "linkedin"] %}
+    <div class="small" style="margin:6px 0">{{ platform|capitalize }} — target <strong>{{ ramps[platform].target }}</strong>
+      <span class="ladder">{% for step in ramps[platform].ladder %}<span class="{{ 'on' if loop.index0 == ramps[platform].ladder_index else '' }}">{{ step }}</span>{% endfor %}</span></div>
+    {% endfor %}
+  </div>
+</div>
+
+<h2>Run history</h2>
+<table><tr><th>#</th><th>Started</th><th>Mode</th><th>Override</th><th>Status</th><th>Summary</th></tr>
+{% for r in runs %}
+<tr><td>{{ r.id }}</td><td>{{ r.started_at }}</td><td>{{ r.mode }}</td><td>{{ r.override_date or '—' }}</td>
+  <td><span class="pill {{ 'ok' if r.status == 'completed' else 'warn' }}">{{ r.status }}</span></td>
+  <td class="small">{% if r.summary_dict %}submitted {{ r.summary_dict.submitted }}, delivered {{ r.summary_dict.delivered }},
+    delivery failed {{ r.summary_dict.delivery_failed }}, skipped {{ r.summary_dict.skipped }},
+    duplicates {{ r.summary_dict.duplicates }}, stumped {{ r.summary_dict.stumped }}, blocked {{ r.summary_dict.blocked }}{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No runs yet.</td></tr>{% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Daily report{% endblock %}
+{% block content %}
+<h1>Daily report — {{ date }}</h1>
+<p class="small muted">Platform split: {% for p, c in by_platform.items() %}<span class="pill">{{ p }}: {{ c }}</span> {% endfor %} · total submitted {{ submitted|length }}</p>
+<h2>Submissions (with proof)</h2>
+<table><tr><th>Company</th><th>Role</th><th>Source</th><th>Delivery</th><th>Proof</th></tr>
+{% for a in submitted %}<tr><td>{{ a.company }}</td><td>{{ a.role }}</td><td>{{ a.source }}</td>
+  <td><span class="pill {{ 'ok' if a.delivery_status == 'delivered' else 'bad' }}">{{ a.delivery_status }}</span></td>
+  <td class="small">{{ a.proof }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">None.</td></tr>{% endfor %}</table>
+<h2>Skips &amp; blocks (with reasons)</h2>
+<table><tr><th>Company</th><th>Role</th><th>Status</th><th>Reason</th></tr>
+{% for a in skipped %}<tr><td>{{ a.company }}</td><td>{{ a.role }}</td><td>{{ a.status }}</td><td class="small">{{ a.reason }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">None.</td></tr>{% endfor %}</table>
+<h2>Stumped questions (verbatim)</h2>
+<table><tr><th>Question</th><th>Company / role</th><th>Status</th></tr>
+{% for s in stumps %}<tr><td>“{{ s.question }}”</td><td>{{ s.company }} — {{ s.role }}</td><td>{{ s.status }}</td></tr>
+{% else %}<tr><td colspan="3" class="muted">None today.</td></tr>{% endfor %}</table>
+{% endblock %}

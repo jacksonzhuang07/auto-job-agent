@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Stumped questions{% endblock %}
+{% block content %}
+<h1>Stumped questions inbox</h1>
+<p class="small muted">Questions the workflow could not answer from stored facts — quoted verbatim. Answering one stores the answer into screening facts and marks the stump resolved, so that application can complete on a later run.</p>
+{% for s in open_stumps %}
+<div class="card" style="margin-bottom:12px">
+  <div><strong>“{{ s.question }}”</strong></div>
+  <div class="small muted">{{ s.company }} — {{ s.role }}{% if s.url %} · <a href="{{ s.url }}">posting</a>{% endif %}</div>
+  <form method="post" action="{{ url_for('main.answer_stump', stump_id=s.id) }}" style="margin-top:8px">
+    <input type="text" name="answer" placeholder="Your answer" required size="38">
+    <input type="text" name="fact_key" placeholder="fact key" value="{{ s.fact_key or '' }}" size="22">
+    <input type="text" name="label" placeholder="Label (optional)" size="24">
+    <button type="submit">Store answer &amp; resolve</button>
+  </form>
+</div>
+{% else %}<p class="muted">No open stumps.</p>{% endfor %}
+
+<h2>Resolved</h2>
+<table><tr><th>Question</th><th>Company / role</th><th>Stored as</th><th>Answer</th><th>Resolved</th></tr>
+{% for s in resolved_stumps %}
+<tr><td>“{{ s.question }}”</td><td>{{ s.company }} — {{ s.role }}</td><td><code>{{ s.fact_key }}</code></td><td>{{ s.answer }}</td><td>{{ s.resolved_at }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">None resolved yet.</td></tr>{% endfor %}
+</table>
+{% endblock %}

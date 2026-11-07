@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Applications ledger{% endblock %}
+{% block content %}
+<h1>Applications ledger</h1>
+<form class="filters" method="get">
+  <select name="platform"><option value="">All platforms</option>
+    {% for p in ["indeed","linkedin"] %}<option value="{{ p }}" {{ 'selected' if platform == p }}>{{ p|capitalize }}</option>{% endfor %}</select>
+  <select name="status"><option value="">All statuses</option>
+    {% for s in ["submitted","skipped","stumped","blocked"] %}<option value="{{ s }}" {{ 'selected' if status == s }}>{{ s }}</option>{% endfor %}</select>
+  <select name="delivery"><option value="">All delivery</option>
+    {% for d in ["delivered","failed","pending","n/a"] %}<option value="{{ d }}" {{ 'selected' if delivery == d }}>{{ d }}</option>{% endfor %}</select>
+  <button type="submit" class="secondary">Filter</button>
+</form>
+<table>
+  <tr><th>Date</th><th>Company</th><th>Role</th><th>Source</th><th>Status</th><th>Delivery</th><th>Proof / reason</th><th>Posting</th></tr>
+  {% for a in applications %}
+  <tr><td>{{ a.date }}</td><td>{{ a.company }}</td><td>{{ a.role }}</td><td>{{ a.source }}</td>
+    <td><span class="pill {{ 'ok' if a.status == 'submitted' else 'warn' }}">{{ a.status }}</span></td>
+    <td><span class="pill {{ 'ok' if a.delivery_status == 'delivered' else ('bad' if a.delivery_status == 'failed' else '') }}">{{ a.delivery_status }}</span></td>
+    <td class="small">{{ a.proof or '' }}{{ (' — ' ~ a.reason) if a.reason else '' }}</td>
+    <td>{% if a.url %}<a href="{{ a.url }}">link</a>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="8" class="muted">Nothing matches.</td></tr>{% endfor %}
+</table>
+<p class="small muted">A “submitted” row with delivery <strong>failed</strong> is flagged for retry — it is not counted as delivered.</p>
+{% endblock %}
