@@ -13,6 +13,13 @@ agent.pid
 *.log
 agent_run.log
 agent.log
+err.txt
+out.txt
+*.tmp
+
+# Visual audit screenshots
+screenshots/
+modal_step3.html
 
 # Python cache
 __pycache__/

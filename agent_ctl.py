@@ -13,20 +13,23 @@ LOG_FILE = BASE_DIR / "agent.log"
 CONFIG_FILE = BASE_DIR / "config.yaml"
 DB_FILE = BASE_DIR / "applications.db"
 
-def is_running(pid: int = None) -> bool:
-    """Check if daemon_runner is actively running."""
+def is_running(pid: int) -> bool:
+    """Check if process with given PID is alive."""
+    if not pid:
+        return False
     if sys.platform == "win32":
+        import ctypes
         try:
-            cmd = 'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'python.exe\'\\" | Where-Object { $_.CommandLine -like \'*daemon_runner.py*\' } | Select-Object -ExpandProperty ProcessId"'
-            out = subprocess.check_output(cmd, shell=True).decode().strip()
-            return bool(out)
+            h = ctypes.windll.kernel32.OpenProcess(0x1000, False, int(pid))
+            if h:
+                ctypes.windll.kernel32.CloseHandle(h)
+                return True
+            return False
         except Exception:
             return False
     else:
-        if not pid:
-            return False
         try:
-            os.kill(pid, 0)
+            os.kill(int(pid), 0)
             return True
         except OSError:
             return False
@@ -54,8 +57,7 @@ def start():
 
         proc = subprocess.Popen(
             [python_bin, str(BASE_DIR / "daemon_runner.py")],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            cwd=str(BASE_DIR),
             creationflags=subprocess.CREATE_NO_WINDOW
         )
     else:
@@ -111,14 +113,25 @@ def status():
     # Query DB stats
     if DB_FILE.exists():
         try:
+            today_prefix = time.strftime("%Y-%m-%d")
             with sqlite3.connect(DB_FILE) as conn:
                 cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM applications WHERE status = 'APPLIED' AND applied_at LIKE ? AND LOWER(platform) = 'linkedin'", (f"{today_prefix}%",))
+                li_today = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM applications WHERE status = 'APPLIED' AND applied_at LIKE ? AND LOWER(platform) = 'indeed'", (f"{today_prefix}%",))
+                ind_today = cur.fetchone()[0]
                 cur.execute("SELECT COUNT(*) FROM applications WHERE status = 'APPLIED'")
-                total_applied = cur.fetchone()[0]
+                lifetime_applied = cur.fetchone()[0]
                 cur.execute("SELECT COUNT(*) FROM applications")
-                total_seen = cur.fetchone()[0]
-                print(f"Total Seen:   {total_seen}")
-                print(f"Applied:      {total_applied}")
+                lifetime_seen = cur.fetchone()[0]
+
+                print("\n--- DAILY APPLICATION GOALS ---")
+                print(f"LinkedIn Easy Apply:  {li_today} / 15 applied today")
+                print(f"Indeed Apply:         {ind_today} / 20 applied today")
+                print(f"Total Applied Today:  {li_today + ind_today} / 35")
+                print("\n--- LIFETIME METRICS ---")
+                print(f"Total Jobs Evaluated: {lifetime_seen}")
+                print(f"Lifetime Applied:     {lifetime_applied}")
         except Exception as e:
             print(f"DB Error:     {e}")
     else:

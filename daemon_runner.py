@@ -2,16 +2,19 @@ import time
 import logging
 import signal
 import sys
+from pathlib import Path
 from datetime import datetime, timedelta
 from main import run_daily_workflow
+
+BASE_DIR = Path(__file__).resolve().parent
+handlers = [logging.FileHandler(str(BASE_DIR / "agent.log"), encoding="utf-8")]
+if sys.stdout is not None:
+    handlers.append(logging.StreamHandler(sys.stdout))
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] [Daemon]: %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("agent.log", encoding="utf-8")
-    ]
+    handlers=handlers
 )
 logger = logging.getLogger("DaemonRunner")
 

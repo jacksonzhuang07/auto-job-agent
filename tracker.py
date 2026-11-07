@@ -62,14 +62,20 @@ class JobTracker:
             ))
             conn.commit()
 
-    def get_todays_applied_count(self) -> int:
+    def get_todays_applied_count(self, platform: Optional[str] = None) -> int:
         today_prefix = datetime.utcnow().strftime("%Y-%m-%d")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT COUNT(*) FROM applications 
-                WHERE status = 'APPLIED' AND applied_at LIKE ?
-            """, (f"{today_prefix}%",))
+            if platform:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM applications 
+                    WHERE status = 'APPLIED' AND applied_at LIKE ? AND LOWER(platform) = LOWER(?)
+                """, (f"{today_prefix}%", platform))
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM applications 
+                    WHERE status = 'APPLIED' AND applied_at LIKE ?
+                """, (f"{today_prefix}%",))
             row = cursor.fetchone()
             return row[0] if row else 0
 

@@ -13,13 +13,14 @@ from agent_matcher import AgentMatcher
 from applier import JobApplier
 from auto_login import run_automated_login
 
+handlers = [logging.FileHandler("agent.log", encoding="utf-8")]
+if sys.stdout is not None:
+    handlers.append(logging.StreamHandler(sys.stdout))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("agent_run.log", encoding="utf-8")
-    ]
+    handlers=handlers
 )
 logger = logging.getLogger("AutoJobAgent")
 
@@ -46,13 +47,20 @@ def run_daily_workflow():
     matcher = AgentMatcher(profile, model_name=config.get("agent", {}).get("model_name", "gemini-2.5-flash"))
     applier = JobApplier(config, matcher)
 
-    # Check daily limit
-    max_daily = config.get("agent", {}).get("max_daily_applications", 15)
-    applied_today = tracker.get_todays_applied_count()
-    logger.info(f"Today's application count so far: {applied_today}/{max_daily}")
+    # Daily Platform Goals
+    goals = config.get("daily_goals", {})
+    linkedin_goal = goals.get("linkedin_max", 15)
+    indeed_goal = goals.get("indeed_max", 20)
+    total_goal = goals.get("total_max", 35)
 
-    if applied_today >= max_daily:
-        logger.info("Daily application limit reached for today. Sleeping until next cycle.")
+    li_count = tracker.get_todays_applied_count("linkedin")
+    ind_count = tracker.get_todays_applied_count("indeed")
+    applied_today = tracker.get_todays_applied_count()
+
+    logger.info(f"Daily Goal Status -> LinkedIn: {li_count}/{linkedin_goal} | Indeed: {ind_count}/{indeed_goal} | Total: {applied_today}/{total_goal}")
+
+    if applied_today >= total_goal or (li_count >= linkedin_goal and ind_count >= indeed_goal):
+        logger.info("[✓] All daily application goals reached for today. Sleeping until next cycle.")
         return
 
     # Step 1: Discover Jobs
@@ -64,9 +72,19 @@ def run_daily_workflow():
     max_delay = config.get("safety", {}).get("max_delay_seconds", 80)
 
     for job in jobs:
-        if applied_today >= max_daily:
-            logger.info("Reached maximum daily applications limit. Stopping.")
+        li_count = tracker.get_todays_applied_count("linkedin")
+        ind_count = tracker.get_todays_applied_count("indeed")
+        applied_today = tracker.get_todays_applied_count()
+
+        if applied_today >= total_goal:
+            logger.info("Reached combined daily limit. Stopping.")
             break
+
+        platform = job.get("platform", "").lower()
+        if "linkedin" in platform and li_count >= linkedin_goal:
+            continue
+        if "indeed" in platform and ind_count >= indeed_goal:
+            continue
 
         url = job["job_url"]
         if tracker.has_applied_or_skipped(url):

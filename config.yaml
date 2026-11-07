@@ -3,11 +3,15 @@ search:
   location: "Canada"
   is_remote: true
   job_type: "fulltime"
-  results_per_platform: 20
+  results_per_platform: 30
+
+daily_goals:
+  linkedin_max: 15        # Optimal safe daily maximum for LinkedIn Easy Apply
+  indeed_max: 20          # Optimal safe daily maximum for Indeed Apply
+  total_max: 35           # Combined daily goal
 
 agent:
   match_threshold: 75     # Minimum % match to trigger application
-  max_daily_applications: 15
   model_name: "gemini-2.5-flash"
 
 safety:
