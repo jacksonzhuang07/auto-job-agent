@@ -109,7 +109,38 @@ CREATE TABLE IF NOT EXISTS platform_events (
     date TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    plan TEXT NOT NULL DEFAULT 'Autopilot',
+    status TEXT NOT NULL DEFAULT 'inactive',  -- active | trialing | past_due | canceled | inactive
+    is_comped INTEGER NOT NULL DEFAULT 0,     -- 1 = comped/demo subscription (seeded demo user)
+    current_period_start TEXT,
+    current_period_end TEXT,
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id)
+);
+CREATE TABLE IF NOT EXISTS usage_ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    application_id INTEGER NOT NULL UNIQUE REFERENCES applications(id),
+    amount_cents INTEGER NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'USD',
+    period TEXT NOT NULL,             -- billing month, 'YYYY-MM'
+    kind TEXT NOT NULL,               -- included | overage
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Additive migrations for databases created before a column existed."""
+    run_cols = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
+    if run_cols and "trigger" not in run_cols:
+        # What created the run: manual | vercel-cron | worker-queue.
+        conn.execute("ALTER TABLE runs ADD COLUMN trigger_source TEXT DEFAULT 'manual'")
 
 
 def connect(db_path: str) -> sqlite3.Connection:
@@ -121,10 +152,53 @@ def connect(db_path: str) -> sqlite3.Connection:
 def init_db(db_path: str) -> None:
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
+        conn.commit()
 
 
 def _profile_path() -> str:
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "profile.json")
+
+
+def _ensure_comped_subscription(conn: sqlite3.Connection, user_id: int) -> None:
+    """The seeded demo user gets a COMPED active subscription so the
+    hosted demo works without Stripe (clearly marked is_comped=1)."""
+    period = date.today().strftime("%Y-%m")
+    year, month = (int(p) for p in period.split("-"))
+    start = date(year, month, 1).isoformat()
+    end = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1).isoformat()
+    conn.execute(
+        """INSERT OR IGNORE INTO subscriptions
+           (user_id, plan, status, is_comped, current_period_start, current_period_end)
+           VALUES (?, 'Autopilot', 'active', 1, ?, ?)""",
+        (user_id, start, end),
+    )
+
+
+def _meter_seed_application(conn: sqlite3.Connection, user_id: int, application_id: int,
+                            delivery_status: str, app_date: str) -> None:
+    """Meter a seeded application with the same rule billing.meter_application
+    uses (delivered only; first pricing.INCLUDED_APPLICATIONS per period are
+    'included', the rest 'overage'). Duplicated here only to keep db.py free
+    of a billing import (billing imports db)."""
+    from . import pricing
+
+    if delivery_status != "delivered":
+        return
+    period = app_date[:7]
+    count = conn.execute(
+        "SELECT COUNT(*) AS c FROM usage_ledger WHERE user_id = ? AND period = ?",
+        (user_id, period),
+    ).fetchone()["c"]
+    if count < pricing.INCLUDED_APPLICATIONS:
+        kind, amount = "included", 0
+    else:
+        kind, amount = "overage", pricing.OVERAGE_PRICE_CENTS
+    conn.execute(
+        """INSERT OR IGNORE INTO usage_ledger (user_id, application_id, amount_cents, currency, period, kind)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (user_id, application_id, amount, pricing.currency(), period, kind),
+    )
 
 
 def seed(db_path: str) -> int:
@@ -132,6 +206,8 @@ def seed(db_path: str) -> int:
     with connect(db_path) as conn:
         row = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
         if row:
+            _ensure_comped_subscription(conn, row["id"])
+            conn.commit()
             return row["id"]
 
         name, display, email = "Jackson Ray", "Jackson Ray", ""
@@ -161,12 +237,16 @@ def seed(db_path: str) -> int:
                 (user_id, key, value),
             )
         for app in seed_data.SEED_APPLICATIONS:
-            conn.execute(
+            cur = conn.execute(
                 """INSERT INTO applications (user_id, dedupe_key, date, company, role, source, url,
                    proof, status, delivery_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (user_id, dedupe_key(app["company"], app["role"]), app["date"], app["company"],
                  app["role"], app["source"], app["url"], app["proof"], app["status"], app["delivery_status"]),
             )
+            if app["status"] == "submitted":
+                _meter_seed_application(conn, user_id, cur.lastrowid,
+                                        app["delivery_status"], app["date"])
+        _ensure_comped_subscription(conn, user_id)
         for stump in seed_data.SEED_STUMPS:
             conn.execute(
                 "INSERT INTO stumps (user_id, question, company, role, url, fact_key) VALUES (?, ?, ?, ?, ?, ?)",

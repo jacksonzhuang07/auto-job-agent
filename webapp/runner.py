@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, time, timedelta
 
-from . import db, seed_data
+from . import billing, db, seed_data
 from .pacing import PLATFORMS, PacingEngine, PlatformRamp
 from .workflow import dedupe_key, quality_gate, screen_job, sweep_sort_key
 
@@ -75,9 +75,9 @@ def _existing_keys(db_path: str, user_id: int) -> set[str]:
 
 
 def _record(db_path: str, user_id: int, run_id: int, run_date: date, job: dict,
-            status: str, delivery: str = "n/a", proof: str = "", reason: str = "") -> None:
+            status: str, delivery: str = "n/a", proof: str = "", reason: str = "") -> int:
     with db.connect(db_path) as conn:
-        conn.execute(
+        cur = conn.execute(
             """INSERT INTO applications (user_id, dedupe_key, date, company, role, source, url,
                proof, status, delivery_status, reason, run_id)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -86,6 +86,7 @@ def _record(db_path: str, user_id: int, run_id: int, run_date: date, job: dict,
              proof, status, delivery, reason, run_id),
         )
         conn.commit()
+        return cur.lastrowid
 
 
 def _record_stump(db_path: str, user_id: int, job: dict, stump: dict) -> bool:
@@ -132,8 +133,11 @@ def _add_drafts(db_path: str, user_id: int) -> int:
 
 
 def run_simulation(db_path: str, user_id: int, pool: list[dict] | None = None,
-                   run_date: date | None = None) -> dict:
-    """Run one simulated pass. Returns the run summary dict."""
+                   run_date: date | None = None, trigger: str = "manual") -> dict:
+    """Run one simulated pass. Returns the run summary dict.
+
+    trigger records what created the run ('manual', 'vercel-cron', ...).
+    """
     run_date = run_date or date.today()
     settings = db.get_settings(db_path, user_id)
     facts = db.get_facts(db_path, user_id)
@@ -150,8 +154,9 @@ def run_simulation(db_path: str, user_id: int, pool: list[dict] | None = None,
 
     with db.connect(db_path) as conn:
         cur = conn.execute(
-            "INSERT INTO runs (user_id, mode, override_date, status) VALUES (?, 'simulation', ?, 'running')",
-            (user_id, override.isoformat() if override else None),
+            """INSERT INTO runs (user_id, mode, override_date, status, trigger_source)
+               VALUES (?, 'simulation', ?, 'running', ?)""",
+            (user_id, override.isoformat() if override else None, trigger),
         )
         run_id = cur.lastrowid
         conn.commit()
@@ -164,7 +169,8 @@ def run_simulation(db_path: str, user_id: int, pool: list[dict] | None = None,
         "submitted": 0, "delivered": 0, "delivery_failed": 0, "skipped": 0,
         "duplicates": 0, "stumped": 0, "blocked": 0, "us_auth_screened": 0,
         "by_platform": {}, "skip_reasons": [], "stumps": [], "drafts_added": 0,
-        "override_active": bool(override), "mode": "simulation",
+        "override_active": bool(override), "mode": "simulation", "trigger": trigger,
+        "metered": 0,
     }
 
     # Simulated clock starts at 09:00 on the run date; pacing moves it forward.
@@ -234,8 +240,13 @@ def run_simulation(db_path: str, user_id: int, pool: list[dict] | None = None,
                 note = f" Salary entered: {salary_answers[0]} (top of band / fallback rule)."
         if delivery == "failed":
             note += " Employer delivery failed (platform notice) — flagged for retry, not counted as delivered."
-        _record(db_path, user_id, run_id, run_date, job, "submitted",
-                delivery=delivery, proof=f"[SIMULATED] {proof}{note}")
+        app_id = _record(db_path, user_id, run_id, run_date, job, "submitted",
+                         delivery=delivery, proof=f"[SIMULATED] {proof}{note}")
+        # Meter through the same billing path the worker API uses; only
+        # delivered applications are billable (metering returns None for
+        # delivery-failed, so those are never charged).
+        if billing.meter_application(db_path, user_id, app_id, delivery, app_date=run_date):
+            summary["metered"] += 1
         seen_keys.add(key)
         summary["submitted"] += 1
         summary["by_platform"][platform]["submitted"] += 1
