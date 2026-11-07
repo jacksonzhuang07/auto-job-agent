@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Billing{% endblock %}
+{% block content %}
+<h1>Billing</h1>
+
+<div class="cards">
+  <div class="card">
+    <div class="lbl">Current plan</div>
+    {% if subscription %}
+    <div class="num">{{ subscription.plan }}</div>
+    <div class="small" style="margin-top:6px">
+      Status: <span class="pill {{ 'ok' if subscription.status == 'active' else 'warn' }}">{{ subscription.status }}</span>
+      {% if subscription.is_comped %}<span class="pill warn">Comped — demo account</span>{% endif %}
+    </div>
+    <div class="small muted" style="margin-top:6px">Period: {{ subscription.current_period_start or '—' }} → {{ subscription.current_period_end or '—' }}</div>
+    {% if subscription.stripe_subscription_id %}<div class="small muted">Stripe subscription: {{ subscription.stripe_subscription_id }}</div>{% endif %}
+    {% else %}
+    <div class="num">No subscription</div>
+    <div class="small">Runs do not execute in hosted mode without an active subscription.</div>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="lbl">Usage — {{ usage.period }} (billing month)</div>
+    <div class="num">{{ usage.delivered }}</div>
+    <div class="lbl">Delivered applications this period</div>
+    <div class="small" style="margin-top:6px">
+      Included allowance used: <strong>{{ usage.included_used }} / {{ usage.included_total }}</strong><br>
+      Overage applications: <strong>{{ usage.overage_count }} × ${{ '%.2f'|format(pricing.overage_price) }}</strong>
+      = ${{ '%.2f'|format(usage.overage_cents / 100) }}<br>
+      Base subscription: ${{ '%.2f'|format(usage.base_cents / 100) }}<br>
+      <strong>Estimated amount due: ${{ '%.2f'|format(usage.total_due_cents / 100) }} {{ pricing.currency }}</strong>
+    </div>
+    <div class="small muted" style="margin-top:6px">Only <strong>delivered</strong> applications are metered. A submission whose employer delivery failed is never charged.</div>
+  </div>
+  <div class="card">
+    <div class="lbl">Payments (Stripe)</div>
+    {% if stripe_configured %}
+    <p class="small"><span class="pill ok">Live</span> Stripe is configured — checkout is enabled.</p>
+    <form method="post" action="{{ url_for('main.billing_checkout') }}">
+      <button type="submit">Subscribe / Manage</button>
+    </form>
+    {% else %}
+    <p class="small"><span class="pill warn">Not configured</span> Payments not configured — add Stripe keys to go live (<code>STRIPE_SECRET_KEY</code>, <code>STRIPE_PRICE_ID</code>, <code>STRIPE_WEBHOOK_SECRET</code>).</p>
+    <button type="button" disabled>Subscribe / Manage</button>
+    {% endif %}
+    {% if checkout_state == 'success' %}<p class="small" style="margin-top:6px">Checkout completed — subscription status updates arrive via webhook.</p>{% endif %}
+    {% if checkout_state == 'cancelled' %}<p class="small" style="margin-top:6px">Checkout cancelled — no charge was made.</p>{% endif %}
+  </div>
+</div>
+
+<h2>Usage ledger — {{ usage.period }}</h2>
+<table>
+  <tr><th>#</th><th>Application</th><th>Company</th><th>Role</th><th>Source</th><th>Kind</th><th>Amount</th><th>Metered at</th></tr>
+  {% for r in usage_rows %}
+  <tr><td>{{ r.id }}</td><td>{{ r.application_date }}</td><td>{{ r.company }}</td><td>{{ r.role }}</td><td>{{ r.source }}</td>
+    <td><span class="pill {{ 'warn' if r.kind == 'overage' else 'ok' }}">{{ r.kind }}</span></td>
+    <td>${{ '%.2f'|format(r.amount_cents / 100) }}</td><td class="small">{{ r.created_at }}</td></tr>
+  {% else %}<tr><td colspan="8" class="muted">No metered applications in this period yet.</td></tr>{% endfor %}
+</table>
+{% endblock %}

@@ -9,6 +9,11 @@
     <form method="post" action="{{ url_for('main.start_run') }}"><button type="submit">Start simulated run</button></form>
   </div>
   <div class="card">
+    <div class="lbl">Queue a live run</div>
+    <p class="small">Creates a <code>mode=live</code> run in <em>queued</em> status. A worker machine running the CLI agent claims it via the worker API (<code>POST /api/worker/claim</code>), applies live through its own persistent LinkedIn/Indeed session, and reports submissions back — the web layer never submits live itself.</p>
+    <form method="post" action="{{ url_for('main.queue_live_run') }}"><button type="submit" class="secondary">Queue live run</button></form>
+  </div>
+  <div class="card">
     <div class="lbl">Dated override</div>
     <p class="small">Suspends the day’s count targets (LinkedIn / Indeed) for one date only. Burst pacing and all stop rules stay binding, and an override day does not advance the ramp.</p>
     <form method="post" action="{{ url_for('main.set_override') }}">

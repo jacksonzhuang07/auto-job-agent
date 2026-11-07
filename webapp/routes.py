@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date, datetime
 
-from flask import Blueprint, current_app, redirect, render_template, request, url_for
+from flask import (Blueprint, current_app, jsonify, redirect, render_template,
+                   request, url_for)
 
-from . import db
+from . import billing, db
 from .pacing import LADDERS, PLATFORMS, PlatformRamp
+from .pricing import pricing_summary
 from .runner import run_simulation
 
 bp = Blueprint("main", __name__)
@@ -84,6 +87,7 @@ def dashboard():
         delivered=delivered, failed=failed, recent=recent, open_stumps=open_stumps,
         events=events, ramps=_ramp_states(db_path, user_id),
         override_date=settings.get("override_date", ""),
+        pricing=pricing_summary(),
     )
 
 
@@ -242,6 +246,21 @@ def start_run():
     return redirect(url_for("main.runs"))
 
 
+@bp.route("/runs/queue-live", methods=["POST"])
+def queue_live_run():
+    """Queue a mode='live' run for a worker machine (CLI agent) to claim
+    via the worker API. The web layer never submits live itself."""
+    db_path, user_id = _ctx()
+    with db.connect(db_path) as conn:
+        conn.execute(
+            """INSERT INTO runs (user_id, mode, status, trigger_source)
+               VALUES (?, 'live', 'queued', 'manual')""",
+            (user_id,),
+        )
+        conn.commit()
+    return redirect(url_for("main.runs"))
+
+
 @bp.route("/runs/override", methods=["POST"])
 def set_override():
     db_path, user_id = _ctx()
@@ -304,3 +323,80 @@ def report():
         by_platform[row["source"]] = by_platform.get(row["source"], 0) + 1
     return render_template("report.html", date=today, submitted=submitted,
                            skipped=skipped, stumps=stumps_today, by_platform=by_platform)
+
+
+# ---------------------------------------------------------------------------
+# Billing
+# ---------------------------------------------------------------------------
+
+@bp.route("/billing")
+def billing_page():
+    db_path, user_id = _ctx()
+    subscription = billing.get_subscription(db_path, user_id)
+    usage = billing.period_usage(db_path, user_id)
+    rows = billing.usage_rows(db_path, user_id)
+    return render_template(
+        "billing.html", subscription=subscription, usage=usage, usage_rows=rows,
+        pricing=pricing_summary(), stripe_configured=billing.stripe_configured(),
+        checkout_state=request.args.get("checkout", ""),
+    )
+
+
+@bp.route("/billing/checkout", methods=["POST"])
+def billing_checkout():
+    """Create a Stripe Checkout session (subscription mode) and redirect.
+    Disabled unless STRIPE_SECRET_KEY + STRIPE_PRICE_ID are configured —
+    the app never fakes a charge."""
+    db_path, user_id = _ctx()
+    url = billing.create_checkout_session(db_path, user_id, request.host_url)
+    if not url:
+        return redirect(url_for("main.billing_page"))
+    return redirect(url)
+
+
+@bp.route("/billing/webhook", methods=["POST"])
+def billing_webhook():
+    """Stripe webhook: records subscription status changes.
+
+    Verifies the signature when STRIPE_WEBHOOK_SECRET is set; without the
+    Stripe configuration the endpoint is closed (503 not-configured).
+    """
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+    stripe = billing._stripe()
+    if not secret or stripe is None:
+        return jsonify(error="stripe webhook not configured"), 503
+    payload = request.get_data()
+    sig_header = request.headers.get("Stripe-Signature", "")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, secret)
+    except Exception:
+        return jsonify(error="invalid signature"), 400
+
+    db_path = current_app.config["DATABASE"]
+    event_type = event["type"]
+    obj = event["data"]["object"]
+    if event_type == "checkout.session.completed":
+        user_id = None
+        ref = obj.get("client_reference_id")
+        if ref:
+            try:
+                user_id = int(ref)
+            except (TypeError, ValueError):
+                user_id = None
+        if user_id is None and obj.get("customer"):
+            user_id = billing.find_user_by_stripe_customer(db_path, obj["customer"])
+        if user_id is not None:
+            billing.update_subscription(
+                db_path, user_id, status="active",
+                stripe_customer_id=obj.get("customer"),
+                stripe_subscription_id=obj.get("subscription"),
+            )
+    elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
+        user_id = billing.find_user_by_stripe_customer(db_path, obj.get("customer"))
+        if user_id is not None:
+            status = "canceled" if event_type.endswith("deleted") else obj.get("status", "active")
+            billing.update_subscription(
+                db_path, user_id, status=status,
+                stripe_subscription_id=obj.get("id"),
+            )
+    return jsonify(received=True)

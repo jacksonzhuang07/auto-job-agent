@@ -30,6 +30,16 @@
   {% else %}<tr><td colspan="7" class="muted">No applications yet.</td></tr>{% endfor %}
 </table>
 
+<h2>Pricing — {{ pricing.plan }}</h2>
+<div class="cards">
+  <div class="card"><div class="num">${{ '%.0f'|format(pricing.base_price) }}<span class="muted" style="font-size:15px">/month</span></div>
+    <div class="lbl">Base subscription, includes {{ pricing.included_applications }} delivered applications per month</div></div>
+  <div class="card"><div class="num">${{ '%.2f'|format(pricing.overage_price) }}</div>
+    <div class="lbl">Per additional <strong>delivered</strong> application beyond the included {{ pricing.included_applications }}</div></div>
+  <div class="card"><div class="num">$0</div>
+    <div class="lbl">For failed deliveries — a submission the employer never received is <strong>never</strong> charged. See <a href="{{ url_for('main.billing_page') }}">Billing</a> for this month’s usage.</div></div>
+</div>
+
 {% if events %}
 <h2>Platform warnings / events</h2>
 <table><tr><th>Platform</th><th>Event</th><th>Count at</th><th>Message</th><th>Date</th></tr>
