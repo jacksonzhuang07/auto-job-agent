@@ -98,6 +98,93 @@ override semantics), salary/dedupe/screening rules, the stump answer
 flow, the simulated runner end-to-end, and Flask smoke tests for every
 page.
 
+### Deploy on Vercel
+
+The repo ships a Vercel deployment shape: `api/index.py` exposes the
+Flask app to Vercel's Python runtime, and `vercel.json` rewrites all
+traffic to it and declares a **Cron Job** that calls
+`GET /api/cron/daily-run` once a day at **13:00 UTC** (≈08:00 EST /
+09:00 EDT) to run the autonomous pipeline for every actively-subscribed
+user (runs are recorded with trigger `vercel-cron`).
+
+1. Import the repo in Vercel (root directory = repo root). Python
+   dependencies for the function come from `api/requirements.txt`
+   (Flask + Stripe SDK only — the Playwright CLI stack is *not*
+   installed serverless).
+2. Set the environment variables below in the Vercel project.
+3. Deploy. `/` serves the dashboard; `/api/cron/daily-run` is the cron
+   target; `/billing/webhook` is the Stripe webhook endpoint.
+
+| Env var | Purpose |
+|---|---|
+| `CRON_SECRET` | Vercel Cron sends it as `Authorization: Bearer <CRON_SECRET>`; the endpoint rejects requests without it (401). If unset, the endpoint is open (local dev only). |
+| `WORKER_TOKEN` | Shared secret for the worker API (`X-Worker-Token` header). If unset, the worker API is closed. |
+| `STRIPE_SECRET_KEY` | Enables Stripe Checkout + webhook verification. |
+| `STRIPE_PRICE_ID` | Price ID of the $20/month Autopilot subscription price. |
+| `STRIPE_WEBHOOK_SECRET` | Verifies `/billing/webhook` signatures. Without it the webhook returns 503 (not configured). |
+| `BILLING_CURRENCY` | Optional, default `USD`. |
+| `AUTO_JOB_WEBAPP_DB` | Optional DB path override (see limitation below). |
+
+**Limitation — ephemeral data on Vercel.** Serverless filesystems are
+read-only except `/tmp`, so on Vercel (detected via the `VERCEL` env
+var) the SQLite database lives at `/tmp/auto-job-agent-webapp.db`. It
+survives warm invocations but **resets on cold starts / redeploys** —
+ledger, usage and subscription rows are not durable there. The data
+layer only ever receives a path (`webapp._default_database`), so moving
+to a hosted Postgres/SQLite (e.g. Turso, Neon, Vercel Postgres) later is
+a one-config change: point `AUTO_JOB_WEBAPP_DB` / swap the connection
+factory in `webapp/db.py`.
+
+### Autonomous runs & the worker API
+
+Vercel serverless cannot run Playwright with persistent LinkedIn/Indeed
+logins, so **live applying never runs in the function**. Two paths:
+
+- **Cron path (built-in executor).** The daily Vercel Cron call runs the
+  control-plane pipeline (gate → dedupe → screening/stump → pacing →
+  ledger + metering) for each subscribed user.
+- **Worker path (live executor).** A worker machine running the existing
+  CLI agent (which owns the persistent browser session) drives live
+  runs:
+  - Queue one from the Runs page ("Queue live run", `mode=live`,
+    status `queued`), or insert a run row directly.
+  - `POST /api/worker/claim` with header `X-Worker-Token: <WORKER_TOKEN>`
+    → returns the oldest queued live run and marks it `claimed`
+    (204 when the queue is empty).
+  - The worker applies live, then `POST /api/worker/report` with
+    `{run_id, submissions: [{company, role, platform, url, proof,
+    delivery_status}]}` → submissions enter the ledger through the same
+    dedupe key (duplicates are counted, never recorded or billed),
+    delivered ones are metered, and the run is marked `completed`.
+    Re-reporting a completed run is an idempotent no-op.
+  - In hosted mode (`VERCEL` set), runs for users without an active
+    subscription do not execute.
+
+### Pricing & billing
+
+Plan **Autopilot** (constants in `webapp/pricing.py`):
+
+- **$20/month** base subscription, including **20 delivered
+  applications** per billing month.
+- **$1.00 per additional delivered application** beyond the included 20.
+- **Delivery-failed applications are never billed** — only applications
+  whose delivery to the employer succeeded are metered, exactly once
+  (metering is idempotent per application, shared by the built-in
+  executor and the worker report path).
+
+The Billing page shows the current plan/status, this period's usage
+(delivered count, included allowance used, overage × $1, estimated
+amount due) and the per-application usage ledger. The seeded demo user
+holds a **comped** subscription (clearly marked) so the demo works
+without Stripe. To take real payments, set the three `STRIPE_*` env
+vars: the Billing page then enables a Stripe Checkout session
+(subscription mode) and `/billing/webhook` records subscription status
+changes (checkout completed, subscription updated/deleted). The
+$1/application overage is metered in the in-app usage ledger; in
+production it is reconciled to the subscription as a metered price /
+invoice item. Without Stripe keys the UI states "payments not
+configured" and checkout stays disabled — nothing is ever faked.
+
 ---
 
 ## Quick Setup
